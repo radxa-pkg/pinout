@@ -11,6 +11,7 @@ Build-Depends: debhelper-compat (= 13),
                pandoc,
                python3,
                python3-jsonnet,
+               python3-libgpiod,
 
 Package: pinout
 Architecture: all
@@ -19,5 +20,6 @@ Priority: optional
 Depends: ${misc:Depends},
          python3,
          python3-jsonnet,
+         python3-libgpiod,
 Description: Radxa device information utility
  This package provides the pinout.

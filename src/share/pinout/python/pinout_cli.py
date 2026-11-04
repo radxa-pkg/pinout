@@ -7,6 +7,7 @@ import sys
 from pinout_device import DeviceDatabase, DeviceDetector, DeviceError
 from pinout_connector import ConnectorDatabase
 from pinout_render import ConnectorPinout
+from pinout_gpio import GpioLines
 
 
 def main(data_directory, argv=None):
@@ -36,10 +37,11 @@ def main(data_directory, argv=None):
         print(f'pinout: error: {exc}', file=sys.stderr)
         return 1
     status = 0
+    gpio_lines = GpioLines()
     for index, name in enumerate(references):
         try:
             connector = connectors.load_connector(device, name, index)
-            pinout = ConnectorPinout(connector)
+            pinout = ConnectorPinout(connector, gpio_labels=gpio_lines)
         except DeviceError as exc:
             print(f'pinout: error: {exc}', file=sys.stderr)
             status = 1

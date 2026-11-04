@@ -19,7 +19,10 @@
     mdbook-linkcheck2
     mdbook-toc
     ncurses
-    (python3.withPackages (ps: [ ps.jsonnet ]))
+    (python3.withPackages (ps: with ps; [
+      jsonnet
+      gpiod
+    ]))
   ];
 
   git-hooks = {

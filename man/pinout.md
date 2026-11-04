@@ -18,6 +18,12 @@ numbers use the colors specified in the connector definitions. Color is enabled
 automatically when stdout is a terminal and `TERM` is not `dumb`; redirected
 output is plain text unless color is forced.
 
+Pins with a `gpiod_label` are labeled only when a GPIO line with that name exists
+on an accessible GPIO chip. A matching pin uses its fixed `name` when provided,
+otherwise it uses `gpiod_label`. An unmatched pin still prints its number.
+Detection reads line information without requesting lines or changing their
+state. GPIO chip access failures are reported as connector errors.
+
 # OPTIONS
 
 `-h`, `--help`
@@ -39,6 +45,10 @@ output is plain text unless color is forced.
 
 `/usr/share/pinout/devices/*.jsonnet`
 :   Supported device definitions.
+
+`/dev/gpiochip*`
+:   GPIO chips inspected for matching line names. The user must have permission
+    to open these devices.
 
 # EXIT STATUS
 

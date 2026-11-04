@@ -8,7 +8,7 @@ from pinout_device import DeviceError
 class ConnectorPinout:
     """A numbered connector with optional, connector-local pin definitions."""
 
-    def __init__(self, connector):
+    def __init__(self, connector, gpio_labels=()):
         context = f'Connector {connector["name"]!r}'
         dimensions = connector.get('dimensions')
         if not isinstance(dimensions, dict):
@@ -37,6 +37,15 @@ class ConnectorPinout:
             label = pin.get('name', '')
             if not isinstance(label, str):
                 raise DeviceError(f'{reference}: name must be a string')
+            if 'gpiod_label' in pin:
+                gpio_label = pin['gpiod_label']
+                if not isinstance(gpio_label, str) or not gpio_label.strip():
+                    raise DeviceError(f'{reference}: gpiod_label must be a non-empty string')
+                try:
+                    valid = gpio_label in gpio_labels
+                except DeviceError as exc:
+                    raise DeviceError(f'{reference}: {exc}') from exc
+                label = pin.get('name', gpio_label) if valid else ''
             self.labels[number] = label
             if 'color' in pin:
                 color = pin['color']
