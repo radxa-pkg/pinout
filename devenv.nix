@@ -19,6 +19,7 @@
     mdbook-linkcheck2
     mdbook-toc
     ncurses
+    (python3.withPackages (ps: [ ps.jsonnet ]))
   ];
 
   git-hooks = {
@@ -49,6 +50,7 @@
     };
   };
 
+  languages.jsonnet.enable = true;
+
   starship.enable = true;
 }
-

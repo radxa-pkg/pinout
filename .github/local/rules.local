@@ -1,0 +1,2 @@
+override_dh_install:
+	dh_install -X__pycache__

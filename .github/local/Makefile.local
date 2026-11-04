@@ -1,0 +1,28 @@
+test: python-test
+
+.PHONY: python-test
+python-test:
+	python3 -B -m unittest discover -s tests -v
+
+main_build: build-man
+
+PANDOC ?= pandoc
+
+SRC-MAN		:=	man
+SRCS-MAN	:=	$(wildcard $(SRC-MAN)/*.md)
+MANS		:=	$(SRCS-MAN:.md=.1)
+.PHONY: build-man
+build-man: $(MANS)
+
+$(SRC-MAN)/%.1: $(SRC-MAN)/%.md
+	$(PANDOC) "$<" -o "$@" --from markdown-smart --to man -s
+
+clean: clean-man clean-pycache
+
+.PHONY: clean-man
+clean-man:
+	rm -rf $(MANS)
+
+.PHONY: clean-pycache
+clean-pycache:
+	find . -type d -name "__pycache__" -exec rm -rf {} +

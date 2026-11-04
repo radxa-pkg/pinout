@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+"""Pinout reporting utility."""
+
+import sys
+from pathlib import Path
+
+DATA_DIRECTORY = Path(__file__).resolve().parent.parent / 'share' / 'pinout'
+sys.path.insert(0, str(DATA_DIRECTORY / 'python'))
+
+from pinout_cli import main
+
+
+if __name__ == '__main__':
+    sys.exit(main(DATA_DIRECTORY))

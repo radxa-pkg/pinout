@@ -9,12 +9,15 @@ Build-Depends: debhelper-compat (= 13),
                lintian,
                dh-exec,
                pandoc,
+               python3,
+               python3-jsonnet,
 
 Package: pinout
 Architecture: all
 Section: admin
 Priority: optional
 Depends: ${misc:Depends},
-Description: pinout
+         python3,
+         python3-jsonnet,
+Description: Radxa device information utility
  This package provides the pinout.
-
