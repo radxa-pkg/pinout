@@ -9,6 +9,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+import _jsonnet
+
 DATA = Path(__file__).resolve().parents[1] / 'src/share/pinout'
 sys.path.insert(0, str(DATA / 'python'))
 
@@ -140,7 +142,7 @@ class PinoutTests(unittest.TestCase):
                 for expected in ('Test Board', 'header', str(path), reason):
                     self.assertIn(expected, message)
 
-    def test_cli_connector_failure_has_no_success_output(self):
+    def test_cli_connector_failure_keeps_device_description(self):
         output, error = io.StringIO(), io.StringIO()
         with patch('pinout_cli.DeviceDetector') as detector:
             detector.return_value.detect.return_value = {
@@ -148,8 +150,66 @@ class PinoutTests(unittest.TestCase):
             }
             with contextlib.redirect_stdout(output), contextlib.redirect_stderr(error):
                 self.assertEqual(main(self.root, []), 1)
-        self.assertEqual(output.getvalue(), '')
+        self.assertEqual(output.getvalue(), 'Description        : Test Board\n')
         self.assertIn("connector 'missing'", error.getvalue())
+
+    def test_connector_header_requires_a_name(self):
+        directory = self.root / 'connectors'
+        directory.mkdir()
+        path = directory / 'header.jsonnet'
+        for content in ('{}', '{name: null}', '{name: 1}', '{name: " "}'):
+            with self.subTest(content=content):
+                path.write_text(content, encoding='utf-8')
+                with self.assertRaisesRegex(DeviceError, 'name must be a non-empty string'):
+                    ConnectorDatabase(directory).load_connector(
+                        {'model': 'Test Board'}, 'header', 0,
+                    )
+
+    def test_cli_prints_headers_before_loading_next_and_continues_errors(self):
+        directory = self.root / 'connectors'
+        directory.mkdir()
+        for name, content in (
+                ('first', '{name: "First header"}'),
+                ('broken', 'error "broken connector"'),
+                ('unnamed', '{}'),
+                ('last', '{name: "Last header"}')):
+            (directory / f'{name}.jsonnet').write_text(content, encoding='utf-8')
+        output, error = io.StringIO(), io.StringIO()
+        evaluate = _jsonnet.evaluate_file
+
+        def check_output_before_evaluation(path):
+            if Path(path).name in ('broken.jsonnet', 'last.jsonnet'):
+                self.assertIn('\nFirst header:\n', output.getvalue())
+            return evaluate(path)
+
+        with patch('pinout_cli.DeviceDetector') as detector:
+            device = {'model': 'Test Board', 'connectors': [
+                'first', 'missing', None, 'broken', 'unnamed', 'last',
+            ]}
+            detector.return_value.detect.return_value = device
+            with patch('_jsonnet.evaluate_file', side_effect=check_output_before_evaluation):
+                with contextlib.redirect_stdout(output), contextlib.redirect_stderr(error):
+                    self.assertEqual(main(self.root, []), 1)
+        self.assertEqual(output.getvalue(), (
+            'Description        : Test Board\n\nFirst header:\n\nLast header:\n'
+        ))
+        self.assertEqual(error.getvalue().count('pinout: error:'), 4)
+        for expected in ('missing', 'connectors[2]', 'broken connector', 'unnamed'):
+            self.assertIn(expected, error.getvalue())
+
+    def test_cli_valid_connector_headers_succeed(self):
+        directory = self.root / 'connectors'
+        directory.mkdir()
+        (directory / 'header.jsonnet').write_text('{name: "GPIO header"}', encoding='utf-8')
+        output, error = io.StringIO(), io.StringIO()
+        with patch('pinout_cli.DeviceDetector') as detector:
+            detector.return_value.detect.return_value = {
+                'model': 'Test Board', 'connectors': ['header'],
+            }
+            with contextlib.redirect_stdout(output), contextlib.redirect_stderr(error):
+                self.assertEqual(main(self.root, []), 0)
+        self.assertEqual(output.getvalue(), 'Description        : Test Board\n\nGPIO header:\n')
+        self.assertEqual(error.getvalue(), '')
 
     def test_source_launcher_help(self):
         launcher = DATA.parents[1] / 'bin/pinout'
