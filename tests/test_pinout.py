@@ -14,6 +14,7 @@ sys.path.insert(0, str(DATA / 'python'))
 
 from pinout_cli import main
 from pinout_device import DeviceDatabase, DeviceDetector, DeviceError
+from pinout_connector import ConnectorDatabase
 
 
 class PinoutTests(unittest.TestCase):
@@ -85,7 +86,7 @@ class PinoutTests(unittest.TestCase):
     def test_cli_description_and_error_exit(self):
         output, error = io.StringIO(), io.StringIO()
         with patch('pinout_cli.DeviceDetector') as detector:
-            detector.return_value.detect.return_value = {'model': 'Test Board'}
+            detector.return_value.detect.return_value = {'model': 'Test Board', 'connectors': []}
             with contextlib.redirect_stdout(output):
                 self.assertEqual(main(self.root, []), 0)
             detector.return_value.detect.side_effect = DeviceError('No match')
@@ -97,6 +98,58 @@ class PinoutTests(unittest.TestCase):
     def test_repository_definitions_evaluate(self):
         database = DeviceDatabase(DATA / 'devices')
         self.assertIn('Radxa ROCK 4C+', database.models)
+        for device in database.models.values():
+            connectors = ConnectorDatabase(DATA / 'connectors').load(device)
+            self.assertEqual(len(connectors), len(device['connectors']))
+
+    def test_connectors_evaluate_in_device_order(self):
+        directory = self.root / 'connectors'
+        directory.mkdir()
+        (directory / 'first.jsonnet').write_text('{name: "First"}', encoding='utf-8')
+        (directory / 'second.jsonnet').write_text('{name: "Second"}', encoding='utf-8')
+        connectors = ConnectorDatabase(directory).load({
+            'model': 'Test Board', 'connectors': ['second', 'first'],
+        })
+        self.assertEqual(connectors, [{'name': 'Second'}, {'name': 'First'}])
+
+    def test_connector_list_and_names_must_be_valid(self):
+        loader = ConnectorDatabase(self.root / 'connectors')
+        for value in (None, 'header', {}, [1], [''], ['../header'],
+                      ['/header'], ['header.jsonnet'], ['..'], ['a\\b'], ['a\x00b']):
+            with self.subTest(connectors=value):
+                with self.assertRaisesRegex(DeviceError, 'Test Board.*connectors'):
+                    loader.load({'model': 'Test Board', 'connectors': value})
+        with self.assertRaisesRegex(DeviceError, 'connectors must be an array'):
+            loader.load({'model': 'Test Board'})
+
+    def test_connector_file_failures(self):
+        directory = self.root / 'connectors'
+        directory.mkdir()
+        path = directory / 'header.jsonnet'
+        loader = ConnectorDatabase(directory)
+        device = {'model': 'Test Board', 'connectors': ['header']}
+        for content, reason in ((None, 'missing'), ('{', 'cannot evaluate'),
+                                ('error "broken"', 'cannot evaluate'),
+                                ('[]', 'must be an object')):
+            with self.subTest(content=content):
+                if content is not None:
+                    path.write_text(content, encoding='utf-8')
+                with self.assertRaises(DeviceError) as caught:
+                    loader.load(device)
+                message = str(caught.exception)
+                for expected in ('Test Board', 'header', str(path), reason):
+                    self.assertIn(expected, message)
+
+    def test_cli_connector_failure_has_no_success_output(self):
+        output, error = io.StringIO(), io.StringIO()
+        with patch('pinout_cli.DeviceDetector') as detector:
+            detector.return_value.detect.return_value = {
+                'model': 'Test Board', 'connectors': ['missing'],
+            }
+            with contextlib.redirect_stdout(output), contextlib.redirect_stderr(error):
+                self.assertEqual(main(self.root, []), 1)
+        self.assertEqual(output.getvalue(), '')
+        self.assertIn("connector 'missing'", error.getvalue())
 
     def test_source_launcher_help(self):
         launcher = DATA.parents[1] / 'bin/pinout'

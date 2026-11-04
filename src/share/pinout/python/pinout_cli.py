@@ -4,6 +4,7 @@ import argparse
 import sys
 
 from pinout_device import DeviceDatabase, DeviceDetector, DeviceError
+from pinout_connector import ConnectorDatabase
 
 
 def main(data_directory, argv=None):
@@ -14,6 +15,7 @@ def main(data_directory, argv=None):
     try:
         database = DeviceDatabase(data_directory / 'devices')
         device = DeviceDetector(database).detect()
+        ConnectorDatabase(data_directory / 'connectors').load(device)
     except DeviceError as exc:
         print(f'pinout: error: {exc}', file=sys.stderr)
         return 1
