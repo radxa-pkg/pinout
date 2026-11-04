@@ -1,4 +1,4 @@
-pinout (0.1.0-1) UNRELEASED; urgency=medium
+pinout (0.1.0) UNRELEASED; urgency=medium
 
   * Add initial Debian packaging support
 
