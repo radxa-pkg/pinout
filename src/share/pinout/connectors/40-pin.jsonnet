@@ -9,35 +9,30 @@ local blue_pins = [27, 28];
         width: 2,
         height: 20,
     },
-    pins: [
-        {
-            number: i,
+    pins: {
+        [std.toString(i)]: {
             name: '3V3',
             color: '#ffff00',
         } for i in pins_3v3
-    ] + [
-        {
-            number: i,
+    } + {
+        [std.toString(i)]: {
             name: '5V',
             color: '#ff0000',
         } for i in pins_5v
-    ] + [
-        {
-            number: i,
+    } + {
+        [std.toString(i)]: {
             name: 'GND',
             color: '#666666',
         } for i in gnd_pins
-    ] + [
-        {
-            number: i,
+    } + {
+        [std.toString(i)]: {
             gpiod_label: 'PIN_%d' % i,
             color: '#0000ff',
         } for i in blue_pins
-    ] + [
-        {
-            number: i,
+    } + {
+        [std.toString(i)]: {
             gpiod_label: 'PIN_%d' % i,
             color: '#00ff00',
         } for i in std.range(1, 40) if !std.member(pins_3v3 + pins_5v + gnd_pins + blue_pins, i)
-    ],
+    },
 }

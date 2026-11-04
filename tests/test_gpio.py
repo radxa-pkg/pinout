@@ -100,26 +100,19 @@ class GpioTests(unittest.TestCase):
     def test_gpio_labels_require_matches_and_fixed_names_take_priority(self):
         pinout = ConnectorPinout({
             'name': 'Header', 'dimensions': {'width': 2, 'height': 3},
-            'pins': [
-                {'number': 1, 'name': 'FIXED', 'gpiod_label': 'LINE_A'},
-                {'number': 2, 'gpiod_label': 'LINE_B'},
-                {'number': 3, 'name': 'HIDDEN', 'gpiod_label': 'MISSING'},
-                {'number': 4, 'gpiod_label': 'MISSING'},
-                {'number': 5, 'name': 'POWER'},
-                {'number': 6, 'name': '', 'gpiod_label': 'LINE_A'},
-            ],
+            'pins': {'1': {'name': 'FIXED', 'gpiod_label': 'LINE_A'}, '2': {'gpiod_label': 'LINE_B'}, '3': {'name': 'HIDDEN', 'gpiod_label': 'MISSING'}, '4': {'gpiod_label': 'MISSING'}, '5': {'name': 'POWER'}, '6': {'name': '', 'gpiod_label': 'LINE_A'}},
         }, gpio_labels={'LINE_A', 'LINE_B'})
         self.assertEqual(list(pinout.rows()), [
             'FIXED (1) (2) LINE_B', '      (3) (4)', 'POWER (5) (6)',
         ])
 
     def test_invalid_gpio_labels(self):
-        for value in (None, 1, '', ' ', [], {}):
+        for value in (1, '', ' ', [], {}):
             with self.subTest(label=value):
                 with self.assertRaisesRegex(DeviceError, 'gpiod_label must be a non-empty string'):
                     ConnectorPinout({
                         'name': 'Header', 'dimensions': {'width': 1, 'height': 1},
-                        'pins': [{'number': 1, 'gpiod_label': value}],
+                        'pins': {'1': {'gpiod_label': value}},
                     })
 
     def test_fixed_only_pins_do_not_scan_gpio(self):
@@ -127,7 +120,7 @@ class GpioTests(unittest.TestCase):
         with patch.object(lines, '_scan') as scan:
             pinout = ConnectorPinout({
                 'name': 'Header', 'dimensions': {'width': 1, 'height': 1},
-                'pins': [{'number': 1, 'name': 'GND'}],
+                'pins': {'1': {'name': 'GND'}},
             }, gpio_labels=lines)
             self.assertEqual(list(pinout.rows()), ['GND (1)'])
             scan.assert_not_called()
@@ -135,11 +128,11 @@ class GpioTests(unittest.TestCase):
     def test_cli_uses_gpio_names_and_continues_after_access_failure(self):
         gpio_connector = {
             'name': 'GPIO header', 'dimensions': {'width': 1, 'height': 1},
-            'pins': [{'number': 1, 'gpiod_label': 'LINE_A'}],
+            'pins': {'1': {'gpiod_label': 'LINE_A'}},
         }
         fixed_connector = {
             'name': 'Fixed header', 'dimensions': {'width': 1, 'height': 1},
-            'pins': [{'number': 1, 'name': 'GND'}],
+            'pins': {'1': {'name': 'GND'}},
         }
         for failure in (False, True):
             with self.subTest(failure=failure):
@@ -160,7 +153,7 @@ class GpioTests(unittest.TestCase):
                     gpio.assert_called_once_with()
                 self.assertIn('Fixed header:\nGND (1)', output.getvalue())
                 if failure:
-                    self.assertIn("Connector 'GPIO header', pins[0]: GPIO access denied", error.getvalue())
+                    self.assertIn("Connector 'GPIO header', pins['1']: GPIO access denied", error.getvalue())
                     self.assertNotIn('\nGPIO header:', output.getvalue())
                 else:
                     self.assertIn('GPIO header:\nLINE_A (1)', output.getvalue())

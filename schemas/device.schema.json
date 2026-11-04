@@ -12,18 +12,13 @@
       "pattern": "\\S"
     },
     "connectors": {
-      "description": "Connector file names in display order, relative to the connectors directory and without the .jsonnet extension. File existence and evaluation are checked by the program.",
+      "description": "Connector IDs or partial connector overrides in display order. Each override's id selects its base connector. The program resolves IDs, merges overrides, and validates the result.",
       "type": "array",
       "items": {
-        "type": "string",
-        "pattern": "\\S",
-        "not": {
-          "anyOf": [
-            { "enum": [".", ".."] },
-            { "pattern": "[/\\\\\u0000]" },
-            { "pattern": "\\.jsonnet$" }
-          ]
-        }
+        "oneOf": [
+          { "$ref": "connector.schema.json#/$defs/id" },
+          { "$ref": "connector.schema.json#/$defs/override" }
+        ]
       }
     }
   }

@@ -25,7 +25,7 @@ class ConfigurationTests(unittest.TestCase):
         }), encoding='utf-8')
         self.connector.write_text(
             'local label = "GND"; {name: "Header", dimensions: {width: 1, height: 2}, '
-            'pins: [{number: i, name: label} for i in std.range(1, 2)]}', encoding='utf-8',
+            'pins: {[std.toString(i)]: {name: label} for i in std.range(1, 2)}}', encoding='utf-8',
         )
 
     def test_evaluates_jsonnet_and_accepts_arbitrary_device_models(self):
@@ -34,10 +34,10 @@ class ConfigurationTests(unittest.TestCase):
     def test_schema_error_reports_file_and_property(self):
         self.connector.write_text(json.dumps({
             'name': 'Header', 'dimensions': {'width': 1, 'height': 1},
-            'pins': [{'number': 1, 'color': 'red'}],
+            'pins': {'1': {'color': 'red'}},
         }), encoding='utf-8')
         errors = '\n'.join(validate_configuration(self.root))
-        self.assertIn('connectors/header.jsonnet:$.pins[0].color:', errors)
+        self.assertIn('connectors/header.jsonnet:#/pins/1/color:', errors)
 
     def test_checks_unreferenced_connector_files(self):
         (self.data / 'connectors/unused.jsonnet').write_text('{', encoding='utf-8')
@@ -47,11 +47,11 @@ class ConfigurationTests(unittest.TestCase):
     def test_missing_connector_reference_fails(self):
         self.connector.unlink()
         errors = '\n'.join(validate_configuration(self.root))
-        self.assertIn("devices/board.jsonnet: connector 'header' is missing or invalid", errors)
+        self.assertIn("connector 'header' is missing", errors)
 
     def test_runtime_pin_constraints_are_preserved(self):
-        for pins, reason in (([{'number': 1}, {'number': 1}], 'duplicate pin number'),
-                             ([{'number': 3}], 'number must be an integer from 1 to 2')):
+        for pins, reason in (({'01': {}}, 'does not match'),
+                             ({'3': {}}, 'pin number must be from 1 to 2')):
             with self.subTest(pins=pins):
                 self.connector.write_text(json.dumps({
                     'name': 'Header', 'dimensions': {'width': 1, 'height': 2}, 'pins': pins,
@@ -61,6 +61,27 @@ class ConfigurationTests(unittest.TestCase):
     def test_duplicate_models_fail_without_assuming_a_model_value(self):
         shutil.copy2(self.device, self.device.with_name('duplicate.jsonnet'))
         self.assertIn('duplicate model', '\n'.join(validate_configuration(self.root)))
+
+    def test_partial_override_schema_and_resolved_configuration(self):
+        self.device.write_text(json.dumps({
+            'model': 'Override Board', 'connectors': [{
+                'id': 'header', 'pins': {'2': {'name': 'ADC_IN0', 'gpiod_label': None}},
+                'dimensions': {'height': 3},
+            }],
+        }), encoding='utf-8')
+        self.assertEqual(validate_configuration(self.root), [])
+
+    def test_resolved_override_bounds_are_checked(self):
+        self.device.write_text(json.dumps({
+            'model': 'Override Board', 'connectors': [{'id': 'header', 'pins': {'3': {}}}],
+        }), encoding='utf-8')
+        self.assertIn('pin number must be from 1 to 2', '\n'.join(validate_configuration(self.root)))
+
+    def test_duplicate_connector_ids_are_checked_even_when_unused(self):
+        (self.data / 'connectors/unused.jsonnet').write_text(
+            '{id: "header", name: "Other", dimensions: {width: 1, height: 1}}', encoding='utf-8',
+        )
+        self.assertIn('duplicate connector id', '\n'.join(validate_configuration(self.root)))
 
 
 if __name__ == '__main__':

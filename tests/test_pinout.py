@@ -102,12 +102,15 @@ class PinoutTests(unittest.TestCase):
     def test_connectors_evaluate_in_device_order(self):
         directory = self.root / 'connectors'
         directory.mkdir()
-        (directory / 'first.jsonnet').write_text('{name: "First"}', encoding='utf-8')
-        (directory / 'second.jsonnet').write_text('{name: "Second"}', encoding='utf-8')
+        (directory / 'first.jsonnet').write_text(
+            '{name: "First", dimensions: {width: 1, height: 1}}', encoding='utf-8')
+        (directory / 'second.jsonnet').write_text(
+            '{name: "Second", dimensions: {width: 1, height: 1}}', encoding='utf-8')
         connectors = ConnectorDatabase(directory).load({
             'model': 'Test Board', 'connectors': ['second', 'first'],
         })
-        self.assertEqual(connectors, [{'name': 'Second'}, {'name': 'First'}])
+        self.assertEqual([connector['name'] for connector in connectors], ['Second', 'First'])
+        self.assertEqual([connector['id'] for connector in connectors], ['second', 'first'])
 
     def test_connector_list_and_names_must_be_valid(self):
         loader = ConnectorDatabase(self.root / 'connectors')
@@ -132,9 +135,9 @@ class PinoutTests(unittest.TestCase):
                 if content is not None:
                     path.write_text(content, encoding='utf-8')
                 with self.assertRaises(DeviceError) as caught:
-                    loader.load(device)
+                    ConnectorDatabase(directory).load(device)
                 message = str(caught.exception)
-                for expected in ('Test Board', 'header', str(path), reason):
+                for expected in ('Test Board', 'header', str(path if content else directory), reason):
                     self.assertIn(expected, message)
 
     def test_cli_connector_failure_keeps_device_description(self):
@@ -198,7 +201,7 @@ class PinoutTests(unittest.TestCase):
         directory.mkdir()
         (directory / 'header.jsonnet').write_text(
             '{name: "GPIO header", dimensions: {width: 2, height: 1}, '
-            'pins: [{number: 1, name: "3V3"}, {number: 2, name: "5V"}]}',
+            'pins: {"1": {name: "3V3"}, "2": {name: "5V"}}}',
             encoding='utf-8',
         )
         output, error = io.StringIO(), io.StringIO()
@@ -215,9 +218,7 @@ class PinoutTests(unittest.TestCase):
     def test_two_column_sparse_pins_use_connector_numbers(self):
         connector = {
             'name': 'Sparse header', 'dimensions': {'width': 2, 'height': 3},
-            'pins': [{'number': 6, 'name': 'RESET'}, {'number': 2, 'name': '5V'},
-                     {'number': 1, 'name': '3V3'}, {'number': 5, 'name': 'GND'},
-                     {'number': 3, 'gpiod_label': 'GPIO3', 'color': '#ff0000'}],
+            'pins': {'6': {'name': 'RESET'}, '2': {'name': '5V'}, '1': {'name': '3V3'}, '5': {'name': 'GND'}, '3': {'gpiod_label': 'GPIO3', 'color': '#ff0000'}},
         }
         self.assertEqual(list(ConnectorPinout(connector).rows()), [
             '3V3 (1) (2) 5V', '    (3) (4)', 'GND (5) (6) RESET',
@@ -226,7 +227,7 @@ class PinoutTests(unittest.TestCase):
     def test_one_column_pins_use_the_left_layout(self):
         connector = {
             'name': 'Single header', 'dimensions': {'width': 1, 'height': 3},
-            'pins': [{'number': 3, 'name': 'GND'}, {'number': 1, 'name': '3V3'}],
+            'pins': {'3': {'name': 'GND'}, '1': {'name': '3V3'}},
         }
         self.assertEqual(list(ConnectorPinout(connector).rows()), [
             '3V3 (1)', '    (2)', 'GND (3)',
@@ -263,9 +264,9 @@ class PinoutTests(unittest.TestCase):
             with self.subTest(dimensions=dimensions):
                 with self.assertRaisesRegex(DeviceError, 'dimensions'):
                     ConnectorPinout({'name': 'Invalid', 'dimensions': dimensions})
-        for pins in (None, {}, [None], [{}], [{'number': True}], [{'number': 0}],
-                     [{'number': 5}], [{'number': 1.5}], [{'number': 1, 'name': None}],
-                     [{'number': 1}, {'number': 1}]):
+        for pins in (None, [], {'0': {}}, {'01': {}}, {'-1': {}}, {'1.5': {}},
+                     {'5': {}}, {1: {}}, {'1': None}, {'1': {'name': None}},
+                     {'1': {'number': 1}}):
             with self.subTest(pins=pins):
                 with self.assertRaisesRegex(DeviceError, 'pins'):
                     ConnectorPinout({'name': 'Invalid', 'dimensions': valid_dimensions,
@@ -282,9 +283,7 @@ class PinoutTests(unittest.TestCase):
     def test_pin_colors_use_rgb_and_reset_each_pin(self):
         connector = {
             'name': 'Colored header', 'dimensions': {'width': 2, 'height': 2},
-            'pins': [{'number': 1, 'name': '3V3', 'color': '#FFff00'},
-                     {'number': 2, 'name': '5V', 'color': '#ff0000'},
-                     {'number': 3, 'color': '#123456'}],
+            'pins': {'1': {'name': '3V3', 'color': '#FFff00'}, '2': {'name': '5V', 'color': '#ff0000'}, '3': {'color': '#123456'}},
         }
         pinout = ConnectorPinout(connector)
         self.assertEqual(list(pinout.rows(color=True)), [
@@ -298,8 +297,7 @@ class PinoutTests(unittest.TestCase):
             with self.subTest(width=width):
                 pinout = ConnectorPinout({
                     'name': 'Header', 'dimensions': {'width': width, 'height': 12},
-                    'pins': [{'number': 1, 'name': 'POWER', 'color': '#abcdef'},
-                             {'number': 10, 'name': 'GND', 'color': '#000000'}],
+                    'pins': {'1': {'name': 'POWER', 'color': '#abcdef'}, '10': {'name': 'GND', 'color': '#000000'}},
                 })
                 plain = list(pinout.rows())
                 colored = [re.sub(r'\x1b\[[0-9;]*m', '', row)
@@ -309,10 +307,10 @@ class PinoutTests(unittest.TestCase):
     def test_invalid_pin_colors_report_errors(self):
         for value in (None, 1, '', 'red', '#fff', '#1234567', '#gg0000', '#123456\n'):
             with self.subTest(color=value):
-                with self.assertRaisesRegex(DeviceError, r'pins\[0\].*color.*#RRGGBB'):
+                with self.assertRaisesRegex(DeviceError, r"pins\['1'\].*color.*#RRGGBB"):
                     ConnectorPinout({
                         'name': 'Header', 'dimensions': {'width': 1, 'height': 1},
-                        'pins': [{'number': 1, 'color': value}],
+                        'pins': {'1': {'color': value}},
                     })
 
     def test_cli_color_selection(self):
@@ -320,7 +318,7 @@ class PinoutTests(unittest.TestCase):
         directory.mkdir()
         (directory / 'header.jsonnet').write_text(
             '{name: "Header", dimensions: {width: 1, height: 1}, '
-            'pins: [{number: 1, name: "3V3", color: "#ffff00"}]}', encoding='utf-8',
+            'pins: {"1": {name: "3V3", color: "#ffff00"}}}', encoding='utf-8',
         )
         for argv, tty, term, colored in (
                 ([], False, 'xterm', False), ([], True, 'xterm', True),
@@ -351,7 +349,7 @@ class PinoutTests(unittest.TestCase):
         for name, color in (('bad', 'invalid'), ('good', '#00ff00')):
             (directory / f'{name}.jsonnet').write_text(
                 '{name: "%s", dimensions: {width: 1, height: 1}, '
-                'pins: [{number: 1, color: "%s"}]}' % (name, color), encoding='utf-8',
+                'pins: {"1": {color: "%s"}}}' % (name, color), encoding='utf-8',
             )
         output, error = io.StringIO(), io.StringIO()
         with patch('pinout_cli.DeviceDetector') as detector:

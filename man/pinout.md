@@ -24,6 +24,16 @@ otherwise it uses `gpiod_label`. An unmatched pin still prints its number.
 Detection reads line information without requesting lines or changing their
 state. GPIO chip access failures are reported as connector errors.
 
+Connector definitions have an optional `id`, defaulting to their filename
+without `.jsonnet`. Device `connectors` entries are either ID strings or objects
+whose required `id` selects a base connector. Other fields override that base:
+objects merge recursively and scalar values replace inherited values.
+
+The connector's `pins` object is keyed by pin-number strings such as `"1"` and
+`"26"`. A pin override changes only the supplied fields, preserving settings
+such as color. Setting `gpiod_label` to `null` disables an inherited GPIO
+requirement so that a fixed `name` can be printed without matching a GPIO line.
+
 # OPTIONS
 
 `-h`, `--help`
@@ -45,6 +55,9 @@ state. GPIO chip access failures are reported as connector errors.
 
 `/usr/share/pinout/devices/*.jsonnet`
 :   Supported device definitions.
+
+`/usr/share/pinout/connectors/*.jsonnet`
+:   Base connector definitions indexed by unique connector ID.
 
 `/dev/gpiochip*`
 :   GPIO chips inspected for matching line names. The user must have permission

@@ -1,12 +1,28 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Pinout connector definition",
-  "description": "The JSON object produced by evaluating a connector Jsonnet file.",
-  "$comment": "Pin numbers must be unique within a connector and must not exceed dimensions.width * dimensions.height. These constraints are checked by the program because standard JSON Schema cannot express them for arbitrary dimensions.",
+  "description": "An evaluated connector Jsonnet object. Its ID defaults to its filename stem.",
+  "$comment": "Pin numbers must not exceed dimensions.width * dimensions.height; the program checks this dynamic bound. Object keys make pin numbers unique.",
   "type": "object",
   "required": ["name", "dimensions"],
   "additionalProperties": false,
   "properties": {
+    "id": { "$ref": "#/$defs/id" },
+    "name": { "$ref": "#/$defs/name" },
+    "dimensions": {
+      "allOf": [
+        { "$ref": "#/$defs/dimensions" },
+        { "required": ["width", "height"] }
+      ]
+    },
+    "pins": { "$ref": "#/$defs/pins" }
+  },
+  "$defs": {
+    "id": {
+      "description": "Unique connector ID. When omitted from a base definition, the loader uses its filename without .jsonnet.",
+      "type": "string",
+      "pattern": "\\S"
+    },
     "name": {
       "description": "Connector name printed as the pinout header.",
       "type": "string",
@@ -14,55 +30,50 @@
     },
     "dimensions": {
       "type": "object",
-      "required": ["width", "height"],
       "additionalProperties": false,
       "properties": {
-        "width": {
-          "description": "Number of pin columns. Two-column connectors place odd pins on the left and even pins on the right.",
-          "type": "integer",
-          "enum": [1, 2]
-        },
-        "height": {
-          "description": "Number of pin rows. Each connector has width * height pins, numbered from 1.",
-          "type": "integer",
-          "minimum": 1
-        }
+        "width": { "type": "integer", "enum": [1, 2] },
+        "height": { "type": "integer", "minimum": 1 }
       }
     },
     "pins": {
-      "description": "Optional pin definitions, matched by number regardless of array order. Pins without a definition are printed without a label.",
-      "type": "array",
-      "default": [],
-      "items": { "$ref": "#/$defs/pin" }
-    }
-  },
-  "$defs": {
+      "description": "Optional definitions keyed by canonical positive pin-number strings. Pins without definitions have no label. Overrides merge each pin's fields.",
+      "type": "object",
+      "default": {},
+      "propertyNames": { "pattern": "^[1-9][0-9]*$" },
+      "additionalProperties": { "$ref": "#/$defs/pin" }
+    },
     "pin": {
       "type": "object",
-      "required": ["number"],
       "additionalProperties": false,
       "properties": {
-        "number": {
-          "description": "Pin number starting at 1 within this connector, unique within the pins array.",
-          "type": "integer",
-          "minimum": 1
-        },
-        "name": {
-          "description": "Fixed pin label. For GPIO pins it is printed only when gpiod_label matches an existing GPIO line.",
-          "type": "string"
-        },
+        "name": { "type": "string", "description": "Fixed label, subject to GPIO matching when gpiod_label is non-null." },
         "color": {
-          "description": "Console foreground color for the pin label and number as #RRGGBB.",
+          "description": "Console foreground color for the pin label and number.",
           "type": "string",
           "minLength": 7,
           "maxLength": 7,
           "pattern": "^#[0-9a-fA-F]{6}$"
         },
         "gpiod_label": {
-          "description": "Exact GPIO line name required for this pin to have a label. A matching pin uses name when defined, otherwise this value; an unmatched pin has no label.",
-          "type": "string",
-          "pattern": "\\S"
+          "description": "Exact GPIO line name required for a label. A match uses name if defined, otherwise this value. Null disables GPIO matching, including an inherited requirement.",
+          "anyOf": [
+            { "type": "string", "pattern": "\\S" },
+            { "type": "null" }
+          ]
         }
+      }
+    },
+    "override": {
+      "description": "Resolve id to a base connector, recursively merge objects, and replace scalar values. The resolved connector must satisfy the complete connector schema.",
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "$ref": "#/$defs/name" },
+        "dimensions": { "$ref": "#/$defs/dimensions" },
+        "pins": { "$ref": "#/$defs/pins" }
       }
     }
   }
