@@ -1,8 +1,12 @@
-test: python-test
+test: python-test schema-test
 
 .PHONY: python-test
 python-test:
 	python3 -B -m unittest discover -s tests -v
+
+.PHONY: schema-test
+schema-test:
+	python3 -B tests/check_config.py
 
 main_build: build-man
 

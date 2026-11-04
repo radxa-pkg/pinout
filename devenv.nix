@@ -21,6 +21,7 @@
     ncurses
     (python3.withPackages (ps: with ps; [
       jsonnet
+      jsonschema
       gpiod
     ]))
   ];

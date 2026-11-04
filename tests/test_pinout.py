@@ -99,16 +99,6 @@ class PinoutTests(unittest.TestCase):
         self.assertEqual(output.getvalue(), 'Description        : Test Board\n')
         self.assertEqual(error.getvalue(), 'pinout: error: No match\n')
 
-    def test_repository_definitions_evaluate(self):
-        database = DeviceDatabase(DATA / 'devices')
-        self.assertIn('Radxa ROCK 4C+', database.models)
-        for device in database.models.values():
-            connectors = ConnectorDatabase(DATA / 'connectors').load(device)
-            self.assertEqual(len(connectors), len(device['connectors']))
-            for connector in connectors:
-                self.assertEqual(len(list(ConnectorPinout(connector).rows())),
-                                 connector['dimensions']['height'])
-
     def test_connectors_evaluate_in_device_order(self):
         directory = self.root / 'connectors'
         directory.mkdir()

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pinout device definition",
+  "description": "The JSON object produced by evaluating a device Jsonnet file.",
+  "type": "object",
+  "required": ["model", "connectors"],
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "description": "Exact device-tree model or DMI system product name used to identify the device.",
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "connectors": {
+      "description": "Connector file names in display order, relative to the connectors directory and without the .jsonnet extension. File existence and evaluation are checked by the program.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "\\S",
+        "not": {
+          "anyOf": [
+            { "enum": [".", ".."] },
+            { "pattern": "[/\\\\\u0000]" },
+            { "pattern": "\\.jsonnet$" }
+          ]
+        }
+      }
+    }
+  }
+}
