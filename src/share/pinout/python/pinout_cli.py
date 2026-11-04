@@ -5,6 +5,7 @@ import sys
 
 from pinout_device import DeviceDatabase, DeviceDetector, DeviceError
 from pinout_connector import ConnectorDatabase
+from pinout_render import ConnectorPinout
 
 
 def main(data_directory, argv=None):
@@ -29,9 +30,12 @@ def main(data_directory, argv=None):
     for index, name in enumerate(references):
         try:
             connector = connectors.load_connector(device, name, index)
+            pinout = ConnectorPinout(connector)
         except DeviceError as exc:
             print(f'pinout: error: {exc}', file=sys.stderr)
             status = 1
             continue
         print(f'\n{connector["name"]}:', flush=True)
+        for row in pinout.rows():
+            print(row, flush=True)
     return status
