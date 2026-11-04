@@ -6,19 +6,28 @@ pinout - report information about the current device
 
 # SYNOPSIS
 
-**pinout** [**-h**]
+**pinout** [**-h**] [**-c** | **-m**]
 
 # DESCRIPTION
 
 **pinout** identifies the current device using the device-tree model, followed
 by the DMI system product name if no device-tree match is found. It compares
 these values with the installed Jsonnet device definitions and prints a
-Description line for a matching device.
+Description line and connector pinouts for a matching device. Pin labels and
+numbers use the colors specified in the connector definitions. Color is enabled
+automatically when stdout is a terminal and `TERM` is not `dumb`; redirected
+output is plain text unless color is forced.
 
 # OPTIONS
 
 `-h`, `--help`
 :   Show help and exit.
+
+`-c`, `--color`
+:   Force colored output, including when stdout is redirected.
+
+`-m`, `--monochrome`
+:   Disable colored output.
 
 # FILES
 

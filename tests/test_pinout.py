@@ -2,6 +2,7 @@
 
 import contextlib
 import io
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -287,6 +288,91 @@ class PinoutTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('usage: pinout', result.stdout)
         self.assertIn('--help', result.stdout)
+
+    def test_pin_colors_use_rgb_and_reset_each_pin(self):
+        connector = {
+            'name': 'Colored header', 'dimensions': {'width': 2, 'height': 2},
+            'pins': [{'number': 1, 'name': '3V3', 'color': '#FFff00'},
+                     {'number': 2, 'name': '5V', 'color': '#ff0000'},
+                     {'number': 3, 'color': '#123456'}],
+        }
+        pinout = ConnectorPinout(connector)
+        self.assertEqual(list(pinout.rows(color=True)), [
+            '\x1b[38;2;255;255;0m3V3 (1)\x1b[0m \x1b[38;2;255;0;0m(2) 5V\x1b[0m',
+            '\x1b[38;2;18;52;86m    (3)\x1b[0m (4)',
+        ])
+        self.assertNotIn('\x1b', '\n'.join(pinout.rows()))
+
+    def test_colors_preserve_alignment_for_both_widths(self):
+        for width in (1, 2):
+            with self.subTest(width=width):
+                pinout = ConnectorPinout({
+                    'name': 'Header', 'dimensions': {'width': width, 'height': 12},
+                    'pins': [{'number': 1, 'name': 'POWER', 'color': '#abcdef'},
+                             {'number': 10, 'name': 'GND', 'color': '#000000'}],
+                })
+                plain = list(pinout.rows())
+                colored = [re.sub(r'\x1b\[[0-9;]*m', '', row)
+                           for row in pinout.rows(color=True)]
+                self.assertEqual(colored, plain)
+
+    def test_invalid_pin_colors_report_errors(self):
+        for value in (None, 1, '', 'red', '#fff', '#1234567', '#gg0000', '#123456\n'):
+            with self.subTest(color=value):
+                with self.assertRaisesRegex(DeviceError, r'pins\[0\].*color.*#RRGGBB'):
+                    ConnectorPinout({
+                        'name': 'Header', 'dimensions': {'width': 1, 'height': 1},
+                        'pins': [{'number': 1, 'color': value}],
+                    })
+
+    def test_cli_color_selection(self):
+        directory = self.root / 'connectors'
+        directory.mkdir()
+        (directory / 'header.jsonnet').write_text(
+            '{name: "Header", dimensions: {width: 1, height: 1}, '
+            'pins: [{number: 1, name: "3V3", color: "#ffff00"}]}', encoding='utf-8',
+        )
+        for argv, tty, term, colored in (
+                ([], False, 'xterm', False), ([], True, 'xterm', True),
+                ([], True, 'dumb', False), (['--color'], False, 'dumb', True),
+                (['-c'], False, 'xterm', True), (['--monochrome'], True, 'xterm', False),
+                (['-m'], True, 'xterm', False)):
+            with self.subTest(argv=argv, tty=tty, term=term):
+                output = io.StringIO()
+                with patch('pinout_cli.DeviceDetector') as detector:
+                    detector.return_value.detect.return_value = {
+                        'model': 'Test Board', 'connectors': ['header'],
+                    }
+                    with patch.dict('os.environ', {'TERM': term}), \
+                            patch.object(output, 'isatty', return_value=tty), \
+                            contextlib.redirect_stdout(output):
+                        self.assertEqual(main(self.root, argv), 0)
+                self.assertEqual('\x1b[38;2;255;255;0m' in output.getvalue(), colored)
+
+    def test_cli_color_options_are_mutually_exclusive(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as caught:
+                main(self.root, ['--color', '--monochrome'])
+        self.assertEqual(caught.exception.code, 2)
+
+    def test_cli_invalid_color_continues_to_next_connector(self):
+        directory = self.root / 'connectors'
+        directory.mkdir()
+        for name, color in (('bad', 'invalid'), ('good', '#00ff00')):
+            (directory / f'{name}.jsonnet').write_text(
+                '{name: "%s", dimensions: {width: 1, height: 1}, '
+                'pins: [{number: 1, color: "%s"}]}' % (name, color), encoding='utf-8',
+            )
+        output, error = io.StringIO(), io.StringIO()
+        with patch('pinout_cli.DeviceDetector') as detector:
+            detector.return_value.detect.return_value = {
+                'model': 'Test Board', 'connectors': ['bad', 'good'],
+            }
+            with contextlib.redirect_stdout(output), contextlib.redirect_stderr(error):
+                self.assertEqual(main(self.root, ['--color']), 1)
+        self.assertIn('color must be a #RRGGBB string', error.getvalue())
+        self.assertNotIn('\nbad:', output.getvalue())
+        self.assertIn('\ngood:\n\x1b[38;2;0;255;0m (1)\x1b[0m\n', output.getvalue())
 
 
 if __name__ == '__main__':

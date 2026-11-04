@@ -1,6 +1,7 @@
 """Command-line interface for pinout."""
 
 import argparse
+import os
 import sys
 
 from pinout_device import DeviceDatabase, DeviceDetector, DeviceError
@@ -12,7 +13,15 @@ def main(data_directory, argv=None):
     parser = argparse.ArgumentParser(
         description='Pinout reporting utility.'
     )
-    parser.parse_args(argv)
+    colors = parser.add_mutually_exclusive_group()
+    colors.add_argument('-c', '--color', dest='color', action='store_const', const=True,
+                        default=None, help='force colored output')
+    colors.add_argument('-m', '--monochrome', dest='color', action='store_const', const=False,
+                        help='disable colored output')
+    args = parser.parse_args(argv)
+    color = args.color
+    if color is None:
+        color = sys.stdout.isatty() and os.environ.get('TERM') != 'dumb'
     try:
         database = DeviceDatabase(data_directory / 'devices')
         device = DeviceDetector(database).detect()
@@ -36,6 +45,6 @@ def main(data_directory, argv=None):
             status = 1
             continue
         print(f'\n{connector["name"]}:', flush=True)
-        for row in pinout.rows():
+        for row in pinout.rows(color=color):
             print(row, flush=True)
     return status

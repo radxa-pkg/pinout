@@ -1,4 +1,6 @@
-"""Render connector pin numbers and fixed labels as plain text."""
+"""Render connector pin numbers and fixed labels with optional ANSI colors."""
+
+import re
 
 from pinout_device import DeviceError
 
@@ -22,6 +24,7 @@ class ConnectorPinout:
         if not isinstance(pins, list):
             raise DeviceError(f'{context}: pins must be an array')
         self.labels = {}
+        self.colors = {}
         for index, pin in enumerate(pins):
             reference = f'{context}, pins[{index}]'
             if not isinstance(pin, dict):
@@ -35,8 +38,19 @@ class ConnectorPinout:
             if not isinstance(label, str):
                 raise DeviceError(f'{reference}: name must be a string')
             self.labels[number] = label
+            if 'color' in pin:
+                color = pin['color']
+                if not isinstance(color, str) or not re.fullmatch(r'#[0-9a-fA-F]{6}', color):
+                    raise DeviceError(f'{reference}: color must be a #RRGGBB string')
+                red, green, blue = (int(color[index:index + 2], 16) for index in (1, 3, 5))
+                self.colors[number] = f'\x1b[38;2;{red};{green};{blue}m'
 
-    def rows(self):
+    def _paint(self, number, text, color):
+        if color and number in self.colors:
+            return f'{self.colors[number]}{text}\x1b[0m'
+        return text
+
+    def rows(self, color=False):
         """Yield rows, adding the right column only for two-column connectors."""
         label_width = max((len(self.labels.get(number, ''))
                            for number in range(1, self.count + 1, self.width)),
@@ -44,8 +58,9 @@ class ConnectorPinout:
         number_width = len(str(self.count))
         for left in range(1, self.count + 1, self.width):
             label = self.labels.get(left, '')
-            row = f'{label:>{label_width}} ({left:>{number_width}})'
+            row = self._paint(left, f'{label:>{label_width}} ({left:>{number_width}})', color)
             if self.width == 2:
                 right = left + 1
-                row += f' ({right:>{number_width}}) {self.labels.get(right, "")}'
-            yield row.rstrip()
+                text = f'({right:>{number_width}}) {self.labels.get(right, "")}'.rstrip()
+                row += ' ' + self._paint(right, text, color)
+            yield row
