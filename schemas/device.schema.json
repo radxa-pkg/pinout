@@ -3,13 +3,18 @@
   "title": "Pinout device definition",
   "description": "The JSON object produced by evaluating a device Jsonnet file.",
   "type": "object",
-  "required": ["model", "connectors"],
+  "required": ["models", "connectors"],
   "additionalProperties": false,
   "properties": {
-    "model": {
-      "description": "Exact device-tree model or DMI system product name used to identify the device.",
-      "type": "string",
-      "pattern": "\\S"
+    "models": {
+      "description": "Exact device-tree model or DMI system product names sharing this configuration. Any listed value matches; Description prints the matched value.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "\\S"
+      }
     },
     "connectors": {
       "description": "Connector IDs or partial connector overrides in display order. Each override's id selects its base connector. The program resolves IDs, merges overrides, and validates the result.",

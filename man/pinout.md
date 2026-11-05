@@ -12,8 +12,10 @@ pinout - report information about the current device
 
 **pinout** identifies the current device using the device-tree model, followed
 by the DMI system product name if no device-tree match is found. It compares
-these values with the installed Jsonnet device definitions and prints a
-Description line and connector pinouts for a matching device. Pin labels and
+these values with the `models` arrays in the installed Jsonnet device
+definitions. Any model in an array selects the same device configuration.
+The Description line prints only the exact model that matched, followed by
+that configuration's connector pinouts. Pin labels and
 numbers use the colors specified in the connector definitions. Color is enabled
 automatically when stdout is a terminal and `TERM` is not `dumb`; redirected
 output is plain text unless color is forced.

@@ -1,7 +1,9 @@
-local model = 'Radxa ROCK 4C+';
+local models = [
+  'Radxa ROCK 4C+',
+];
 
 {
-  model: model,
+  models: models,
   connectors: [
     {
       id: '40-pin',

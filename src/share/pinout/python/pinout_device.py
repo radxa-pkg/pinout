@@ -11,7 +11,7 @@ class DeviceError(Exception):
 
 
 class DeviceDatabase:
-    """Device definitions indexed by their exact model name."""
+    """Shared device definitions indexed by each exact model name."""
 
     def __init__(self, directory):
         self.models = {}
@@ -24,12 +24,15 @@ class DeviceDatabase:
                 raise DeviceError(f'Invalid JSON from {path}: {exc}') from exc
             if not isinstance(definition, dict):
                 raise DeviceError(f'{path}: device definition must be an object')
-            model = definition.get('model')
-            if not isinstance(model, str) or not model.strip():
-                raise DeviceError(f'{path}: model must be a non-empty string')
-            if model in self.models:
-                raise DeviceError(f'{path}: duplicate model {model!r}')
-            self.models[model] = definition
+            models = definition.get('models')
+            if not isinstance(models, list) or not models:
+                raise DeviceError(f'{path}: models must be a non-empty array of strings')
+            for index, model in enumerate(models):
+                if not isinstance(model, str) or not model.strip():
+                    raise DeviceError(f'{path}: models[{index}] must be a non-empty string')
+                if model in self.models:
+                    raise DeviceError(f'{path}: duplicate model {model!r}')
+                self.models[model] = definition
         if not self.models:
             raise DeviceError(f'No device definitions found in {directory}')
 
@@ -61,7 +64,8 @@ class DeviceDetector:
                 observations.append(f'{label}: unavailable (invalid UTF-8)')
                 continue
             if model in self.database.models:
-                return self.database.models[model]
+                # Keep the shared definition unchanged; model is detection metadata.
+                return dict(self.database.models[model], model=model)
             if model:
                 detected = True
                 observations.append(f'{label}: {model!r} (unsupported)')

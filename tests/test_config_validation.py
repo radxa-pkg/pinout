@@ -21,7 +21,7 @@ class ConfigurationTests(unittest.TestCase):
         self.device = self.data / 'devices/board.jsonnet'
         self.connector = self.data / 'connectors/header.jsonnet'
         self.device.write_text(json.dumps({
-            'model': 'An arbitrary platform model', 'connectors': ['header'],
+            'models': ['An arbitrary platform model'], 'connectors': ['header'],
         }), encoding='utf-8')
         self.connector.write_text(
             'local label = "GND"; {name: "Header", dimensions: {width: 1, height: 2}, '
@@ -62,9 +62,32 @@ class ConfigurationTests(unittest.TestCase):
         shutil.copy2(self.device, self.device.with_name('duplicate.jsonnet'))
         self.assertIn('duplicate model', '\n'.join(validate_configuration(self.root)))
 
+    def test_multiple_models_share_a_schema_valid_configuration(self):
+        self.device.write_text(json.dumps({
+            'models': ['First platform', 'Second platform'], 'connectors': ['header'],
+        }), encoding='utf-8')
+        self.assertEqual(validate_configuration(self.root), [])
+
+    def test_model_alias_overlap_between_files_fails(self):
+        self.device.write_text(json.dumps({
+            'models': ['Board A', 'Board B'], 'connectors': ['header'],
+        }), encoding='utf-8')
+        self.device.with_name('other.jsonnet').write_text(json.dumps({
+            'models': ['Board C', 'Board B'], 'connectors': ['header'],
+        }), encoding='utf-8')
+        self.assertIn("duplicate model 'Board B'", '\n'.join(validate_configuration(self.root)))
+
+    def test_models_array_schema_rejects_invalid_values(self):
+        for value in (None, 'Board A', [], [''], [' '], ['Board A', 'Board A'], [1]):
+            with self.subTest(models=value):
+                self.device.write_text(json.dumps({
+                    'models': value, 'connectors': ['header'],
+                }), encoding='utf-8')
+                self.assertTrue(validate_configuration(self.root))
+
     def test_partial_override_schema_and_resolved_configuration(self):
         self.device.write_text(json.dumps({
-            'model': 'Override Board', 'connectors': [{
+            'models': ['Override Board'], 'connectors': [{
                 'id': 'header', 'pins': {'2': {'name': 'ADC_IN0', 'gpiod_label': None}},
                 'dimensions': {'height': 3},
             }],
@@ -73,7 +96,7 @@ class ConfigurationTests(unittest.TestCase):
 
     def test_resolved_override_bounds_are_checked(self):
         self.device.write_text(json.dumps({
-            'model': 'Override Board', 'connectors': [{'id': 'header', 'pins': {'3': {}}}],
+            'models': ['Override Board'], 'connectors': [{'id': 'header', 'pins': {'3': {}}}],
         }), encoding='utf-8')
         self.assertIn('pin number must be from 1 to 2', '\n'.join(validate_configuration(self.root)))
 
@@ -87,7 +110,7 @@ class ConfigurationTests(unittest.TestCase):
         for value in (True, False, 1, 'true', None):
             with self.subTest(missing=value):
                 self.device.write_text(json.dumps({
-                    'model': 'Keyed Board', 'connectors': [{'id': 'header', 'pins': {'1': {'missing': value}}}],
+                    'models': ['Keyed Board'], 'connectors': [{'id': 'header', 'pins': {'1': {'missing': value}}}],
                 }), encoding='utf-8')
                 errors = validate_configuration(self.root)
                 if type(value) is bool:

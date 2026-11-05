@@ -71,13 +71,15 @@ def validate_configuration(root):
     database = ConnectorDatabase(root / 'src/share/pinout/connectors')
     for path, device in documents['device'].items():
         reference = path.relative_to(root)
-        model = device['model']
-        if model in models:
-            errors.append(f'{reference}: duplicate model {model!r}, also defined in {models[model]}')
-        models[model] = reference
+        for model in device['models']:
+            if model in models:
+                errors.append(f'{reference}: duplicate model {model!r}, also defined in {models[model]}')
+            models[model] = reference
+        # Resolve the common configuration once, using one model for diagnostics.
+        selected_device = dict(device, model=device['models'][0])
         for index, entry in enumerate(device['connectors']):
             try:
-                resolved = database.load_connector(device, entry, index)
+                resolved = database.load_connector(selected_device, entry, index)
                 if 'connector' in validators:
                     for failure in validators['connector'].iter_errors(resolved):
                         errors.append(f'{reference}:connectors[{index}]{property_pointer(failure)}: '

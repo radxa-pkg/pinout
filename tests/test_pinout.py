@@ -29,7 +29,7 @@ class PinoutTests(unittest.TestCase):
         self.devices = self.root / 'devices'
         self.devices.mkdir()
         (self.devices / 'board.jsonnet').write_text(
-            '{ model: "Test Board" }', encoding='utf-8'
+            '{ models: ["Test Board"] }', encoding='utf-8'
         )
         self.database = DeviceDatabase(self.devices)
         self.model = self.root / 'model'
