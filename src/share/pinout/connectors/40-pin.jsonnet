@@ -27,7 +27,7 @@ local blue_pins = [27, 28];
     } + {
         [std.toString(i)]: {
             gpiod_label: 'PIN_%d' % i,
-            color: '#0000ff',
+            color: '#0066ff',
         } for i in blue_pins
     } + {
         [std.toString(i)]: {
