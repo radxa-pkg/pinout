@@ -31,8 +31,10 @@ def validate_pins(pins, context, count=None):
             raise DeviceError(f'{reference}: pin number must be from 1 to {count}')
         if not isinstance(pin, dict):
             raise DeviceError(f'{reference}: pin definition must be an object')
-        if set(pin) - {'name', 'color', 'gpiod_label'}:
+        if set(pin) - {'name', 'color', 'gpiod_label', 'missing'}:
             raise DeviceError(f'{reference}: pin definition has unsupported fields')
+        if 'missing' in pin and type(pin['missing']) is not bool:
+            raise DeviceError(f'{reference}: missing must be a boolean')
         if 'name' in pin and not isinstance(pin['name'], str):
             raise DeviceError(f'{reference}: name must be a string')
         label = pin.get('gpiod_label')
@@ -62,8 +64,12 @@ class ConnectorPinout:
         validate_pins(pins, context, self.count)
         self.labels = {}
         self.colors = {}
+        self.missing = set()
         for key, pin in pins.items():
             number = int(key)
+            if pin.get('missing', False):
+                self.missing.add(number)
+                continue
             reference = f'{context}, pins[{key!r}]'
             label = pin.get('name', '')
             gpio_label = pin.get('gpiod_label')
@@ -91,9 +97,13 @@ class ConnectorPinout:
         number_width = len(str(self.count))
         for left in range(1, self.count + 1, self.width):
             label = self.labels.get(left, '')
-            row = self._paint(left, f'{label:>{label_width}} ({left:>{number_width}})', color)
+            if left in self.missing:
+                row = ' ' * (label_width + number_width + 3)
+            else:
+                row = self._paint(left, f'{label:>{label_width}} ({left:>{number_width}})', color)
             if self.width == 2:
                 right = left + 1
-                text = f'({right:>{number_width}}) {self.labels.get(right, "")}'.rstrip()
-                row += ' ' + self._paint(right, text, color)
-            yield row
+                if right not in self.missing:
+                    text = f'({right:>{number_width}}) {self.labels.get(right, "")}'.rstrip()
+                    row += ' ' + self._paint(right, text, color)
+            yield row.rstrip()

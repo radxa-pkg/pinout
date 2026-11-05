@@ -48,6 +48,11 @@
       "additionalProperties": false,
       "properties": {
         "name": { "type": "string", "description": "Fixed label, subject to GPIO matching when gpiod_label is non-null." },
+        "missing": {
+          "description": "Physically absent pin. True leaves its layout position blank, without a number or label, and does not renumber other pins.",
+          "type": "boolean",
+          "default": false
+        },
         "color": {
           "description": "Console foreground color for the pin label and number.",
           "type": "string",

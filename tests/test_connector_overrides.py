@@ -103,6 +103,20 @@ class ConnectorOverrideTests(unittest.TestCase):
         connector = self.database.load_connector(self.device, {'id': 'header', 'pins': {'26': {}}}, 0)
         self.assertEqual(connector, self.base)
 
+    def test_missing_override_preserves_fields_and_can_be_cleared(self):
+        self.base['pins']['26']['missing'] = True
+        self.path.write_text(json.dumps(self.base), encoding='utf-8')
+        missing = self.database.load_connector(self.device, 'header', 0)
+        self.assertNotIn('(26)', '\n'.join(ConnectorPinout(missing).rows()))
+        restored = self.database.load_connector(self.device, {
+            'id': 'header', 'pins': {'26': {'missing': False, 'name': 'RESTORED', 'gpiod_label': None}},
+        }, 1)
+        self.assertEqual(restored['pins']['26']['color'], '#00ff00')
+        self.assertIn('(26) RESTORED', '\n'.join(ConnectorPinout(restored).rows()))
+        hidden = self.database.load_connector(self.device, {'id': 'header', 'pins': {'1': {'missing': True}}}, 2)
+        self.assertEqual(hidden['pins']['1']['name'], '3V3')
+        self.assertNotIn('( 1)', '\n'.join(ConnectorPinout(hidden).rows()))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -34,6 +34,12 @@ The connector's `pins` object is keyed by pin-number strings such as `"1"` and
 such as color. Setting `gpiod_label` to `null` disables an inherited GPIO
 requirement so that a fixed `name` can be printed without matching a GPIO line.
 
+A pin definition with `missing: true` represents a physically absent pin used
+to prevent reverse insertion. Its position is left blank, without a number or
+label. Other pins retain their original numbers and positions. Missing pins do
+not trigger GPIO detection or color output. Omitting `missing` or setting it to
+`false` prints the pin normally.
+
 # OPTIONS
 
 `-h`, `--help`

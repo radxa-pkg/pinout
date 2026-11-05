@@ -83,6 +83,18 @@ class ConfigurationTests(unittest.TestCase):
         )
         self.assertIn('duplicate connector id', '\n'.join(validate_configuration(self.root)))
 
+    def test_missing_pin_override_uses_boolean_schema(self):
+        for value in (True, False, 1, 'true', None):
+            with self.subTest(missing=value):
+                self.device.write_text(json.dumps({
+                    'model': 'Keyed Board', 'connectors': [{'id': 'header', 'pins': {'1': {'missing': value}}}],
+                }), encoding='utf-8')
+                errors = validate_configuration(self.root)
+                if type(value) is bool:
+                    self.assertEqual(errors, [])
+                else:
+                    self.assertTrue(errors)
+
 
 if __name__ == '__main__':
     unittest.main()
