@@ -1,5 +1,6 @@
 local models = [
-  'Radxa ROCK 4C+',
+  // https://docs.radxa.com/en/som/cm/cm5/hardware/hw-interface
+  'Radxa CM5 IO',
 ];
 
 {
@@ -8,12 +9,11 @@ local models = [
     {
       id: '40-pin',
       pins: {
-        '26': {
-          name: 'ADC_IN0',
+        '37': {
+          name: 'SARADC_VIN4',
           gpiod_label: null,
         },
       },
     },
-    'poe',
   ],
 }
