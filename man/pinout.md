@@ -36,6 +36,18 @@ The connector's `pins` object is keyed by pin-number strings such as `"1"` and
 such as color. Setting `gpiod_label` to `null` disables an inherited GPIO
 requirement so that a fixed `name` can be printed without matching a GPIO line.
 
+The optional connector field `starting_num` is a positive integer, defaulting
+to 1. A connector with width 2, height 13, and `starting_num: 27` prints pins
+27 through 52. Pin-definition keys use those displayed numbers. The layout
+starts with `starting_num` on the left; the next number is on the right for
+two-column connectors.
+
+When a device override changes `starting_num`, inherited pin keys shift by the
+difference before its pin overrides are merged. For example, key `"1"` in a
+base starting at 1 becomes `"27"` when overridden to start at 27. Override keys
+then refer to the resulting displayed numbers. Pin names and GPIO labels remain
+literal strings; they are not automatically renumbered.
+
 A pin definition with `missing: true` represents a physically absent pin used
 to prevent reverse insertion. Its position is left blank, without a number or
 label. Other pins retain their original numbers and positions. Missing pins do

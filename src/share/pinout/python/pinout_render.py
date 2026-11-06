@@ -20,15 +20,21 @@ def validate_dimensions(dimensions, context, partial=False):
             raise DeviceError(f'{context}: dimensions.height must be a positive integer')
 
 
-def validate_pins(pins, context, count=None):
+def validate_starting_num(value, context):
+    if type(value) is not int or value < 1:
+        raise DeviceError(f'{context}: starting_num must be a positive integer')
+
+
+def validate_pins(pins, context, count=None, starting_num=1):
     if not isinstance(pins, dict):
         raise DeviceError(f'{context}: pins must be an object keyed by pin number')
     for key, pin in pins.items():
         reference = f'{context}, pins[{key!r}]'
         if not isinstance(key, str) or not re.fullmatch(r'[1-9][0-9]*', key):
             raise DeviceError(f'{reference}: pin key must be a positive integer string')
-        if count is not None and int(key) > count:
-            raise DeviceError(f'{reference}: pin number must be from 1 to {count}')
+        if count is not None and not starting_num <= int(key) < starting_num + count:
+            raise DeviceError(f'{reference}: pin number must be from '
+                              f'{starting_num} to {starting_num + count - 1}')
         if not isinstance(pin, dict):
             raise DeviceError(f'{reference}: pin definition must be an object')
         if set(pin) - {'name', 'color', 'gpiod_label', 'missing'}:
@@ -51,7 +57,7 @@ class ConnectorPinout:
 
     def __init__(self, connector, gpio_labels=()):
         context = f'Connector {connector.get("name", "")!r}'
-        if set(connector) - {'id', 'name', 'dimensions', 'pins'}:
+        if set(connector) - {'id', 'name', 'dimensions', 'pins', 'starting_num'}:
             raise DeviceError(f'{context}: connector has unsupported fields')
         if not isinstance(connector.get('name'), str) or not connector['name'].strip():
             raise DeviceError(f'{context}: name must be a non-empty string')
@@ -60,8 +66,11 @@ class ConnectorPinout:
         self.width = dimensions['width']
         self.height = dimensions['height']
         self.count = self.width * self.height
+        self.starting_num = connector.get('starting_num', 1)
+        validate_starting_num(self.starting_num, context)
+        self.last_num = self.starting_num + self.count - 1
         pins = connector.get('pins', {})
-        validate_pins(pins, context, self.count)
+        validate_pins(pins, context, self.count, self.starting_num)
         self.labels = {}
         self.colors = {}
         self.missing = set()
@@ -92,10 +101,11 @@ class ConnectorPinout:
 
     def rows(self, color=False):
         """Yield rows, adding the right column only for two-column connectors."""
+        positions = range(self.starting_num, self.last_num + 1, self.width)
         label_width = max((len(self.labels.get(number, ''))
-                           for number in range(1, self.count + 1, self.width)), default=0)
-        number_width = len(str(self.count))
-        for left in range(1, self.count + 1, self.width):
+                           for number in positions), default=0)
+        number_width = len(str(self.last_num))
+        for left in positions:
             label = self.labels.get(left, '')
             if left in self.missing:
                 row = ' ' * (label_width + number_width + 3)

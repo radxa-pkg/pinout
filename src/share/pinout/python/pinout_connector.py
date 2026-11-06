@@ -7,7 +7,7 @@ from pathlib import Path
 import _jsonnet
 
 from pinout_device import DeviceError
-from pinout_render import ConnectorPinout, validate_dimensions, validate_pins
+from pinout_render import ConnectorPinout, validate_dimensions, validate_pins, validate_starting_num
 
 
 def merge_connector(base, override):
@@ -68,8 +68,10 @@ class ConnectorDatabase:
         identifier = override.get('id')
         if not isinstance(identifier, str) or not identifier.strip():
             raise DeviceError(f'{context}: id must be a non-empty string')
-        if set(override) - {'id', 'name', 'dimensions', 'pins'}:
+        if set(override) - {'id', 'name', 'dimensions', 'pins', 'starting_num'}:
             raise DeviceError(f'{context}: override has unsupported fields')
+        if 'starting_num' in override:
+            validate_starting_num(override['starting_num'], context)
         if 'name' in override:
             if not isinstance(override['name'], str) or not override['name'].strip():
                 raise DeviceError(f'{context}: name must be a non-empty string')
@@ -97,6 +99,13 @@ class ConnectorDatabase:
                 raise DeviceError('connector definition must be an object')
             definition.setdefault('id', path.stem)
             ConnectorPinout(definition)
+            offset = (override.get('starting_num', definition.get('starting_num', 1))
+                      - definition.get('starting_num', 1))
+            if offset and 'pins' in definition:
+                definition = dict(definition, pins={
+                    str(int(number) + offset): pin
+                    for number, pin in definition['pins'].items()
+                })
             resolved = merge_connector(definition, override)
             ConnectorPinout(resolved)
         except (OSError, RuntimeError, ValueError, DeviceError) as exc:

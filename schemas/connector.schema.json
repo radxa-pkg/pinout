@@ -2,13 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Pinout connector definition",
   "description": "An evaluated connector Jsonnet object. Its ID defaults to its filename stem.",
-  "$comment": "Pin numbers must not exceed dimensions.width * dimensions.height; the program checks this dynamic bound. Object keys make pin numbers unique.",
+  "$comment": "Pin numbers must be from starting_num to starting_num + dimensions.width * dimensions.height - 1; the program checks these dynamic bounds. Object keys make pin numbers unique.",
   "type": "object",
   "required": ["name", "dimensions"],
   "additionalProperties": false,
   "properties": {
     "id": { "$ref": "#/$defs/id" },
     "name": { "$ref": "#/$defs/name" },
+    "starting_num": { "$ref": "#/$defs/starting_num" },
     "dimensions": {
       "allOf": [
         { "$ref": "#/$defs/dimensions" },
@@ -18,6 +19,12 @@
     "pins": { "$ref": "#/$defs/pins" }
   },
   "$defs": {
+    "starting_num": {
+      "description": "First displayed pin number. Defaults to 1 in a base definition; an omitted override inherits the base value. Changing it in an override shifts inherited pin keys before merging the override's absolute-numbered keys. Literal names, colors, and GPIO labels are not rewritten.",
+      "type": "integer",
+      "minimum": 1,
+      "default": 1
+    },
     "id": {
       "description": "Unique connector ID. When omitted from a base definition, the loader uses its filename without .jsonnet.",
       "type": "string",
@@ -37,7 +44,7 @@
       }
     },
     "pins": {
-      "description": "Optional definitions keyed by canonical positive pin-number strings. Pins without definitions have no label. Overrides merge each pin's fields.",
+      "description": "Optional definitions keyed by canonical positive displayed pin-number strings, within the range selected by starting_num and dimensions. Pins without definitions have no label. Overrides merge each pin's fields after any inherited-key shift.",
       "type": "object",
       "default": {},
       "propertyNames": { "pattern": "^[1-9][0-9]*$" },
@@ -77,6 +84,7 @@
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "name": { "$ref": "#/$defs/name" },
+        "starting_num": { "$ref": "#/$defs/starting_num" },
         "dimensions": { "$ref": "#/$defs/dimensions" },
         "pins": { "$ref": "#/$defs/pins" }
       }
