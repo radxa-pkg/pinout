@@ -1,6 +1,12 @@
-pinout (0.1.0) UNRELEASED; urgency=medium
+pinout (0.1.0) unstable; urgency=medium
 
+  [ "Radxa Computer (Shenzhen) Co., Ltd." ]
   * Add initial Debian packaging support
 
- -- "Radxa Computer (Shenzhen) Co., Ltd." <dev@radxa.com>  Thu, 01 Jan 1970 08:00:00 +0800
+  [ ZHANG Yuntian ]
+  * feat: add schemas and checks
+  * feat: support per device override
+  * feat: support missing pins
+  * fix: improve blue text readibility in black background
 
+ -- "Radxa Computer (Shenzhen) Co., Ltd." <dev@radxa.com>  Fri, 06 Nov 2026 07:18:27 +0000
